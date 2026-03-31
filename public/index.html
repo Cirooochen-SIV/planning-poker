@@ -37,7 +37,9 @@
     .estimate-hint { font-size: 0.8rem; color: var(--text-2); margin-bottom: 14px; line-height: 1.5; }
 
     /* ── Special vote hint ───────────────────────────────────── */
-    .special-hint { margin-top: 12px; font-size: 0.8rem; color: var(--text-2); border-top: 1px solid var(--border); padding-top: 10px; }
+    .special-hint { margin-top: 12px; font-size: 0.8rem; color: var(--text-2); border-top: 1px solid var(--border); padding-top: 10px; text-align: center; }
+    .stat-val-group { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .stat-val-sep { color: var(--text-3); font-size: 1.5rem; line-height: 36px; font-weight: 400; }
 
     /* ── Consensus overlay ───────────────────────────────────── */
     #consensus-overlay {
@@ -716,11 +718,12 @@
 
     const counts = {};
     votes.forEach(p => { counts[p.vote] = (counts[p.vote] || 0) + 1; });
-    const topEntry  = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
     const consensus = Object.keys(counts).length === 1;
 
     // Distribution (rendered first in DOM)
     const maxCount = Math.max(...Object.values(counts));
+    const topEntries = Object.entries(counts).filter(([, c]) => c === maxCount);
+    const isTied = topEntries.length > 1;
     const rows = Object.entries(counts)
       .sort((a, b) => {
         const toNum = v => v === '½' ? 0.5 : (isNaN(parseFloat(v)) ? Infinity : parseFloat(v));
@@ -746,8 +749,14 @@
       <div class="stats-card">
         <div class="stats-row">
           <div class="stat">
-            <div class="stat-val">${topEntry[0]}${consensus ? ' 🎉' : ''}</div>
-            <div class="stat-label">Most voted</div>
+            <div class="stat-val-group">
+              ${topEntries.map(([v], i) => `
+                ${i > 0 ? '<span class="stat-val-sep">·</span>' : ''}
+                <span class="stat-val">${v}</span>
+              `).join('')}
+              ${consensus ? '<span class="stat-val-sep">🎉</span>' : ''}
+            </div>
+            <div class="stat-label">${isTied ? 'Most voted (tied)' : 'Most voted'}</div>
           </div>
           <div class="stat">
             <div class="stat-val-secondary">${avg % 1 === 0 ? avg : avg.toFixed(1)}</div>
