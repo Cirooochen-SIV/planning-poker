@@ -276,11 +276,6 @@
   <p class="brand-tagline">Estimate story points together, in real time.</p>
 
   <div class="card">
-    <div class="form-field">
-      <label class="form-label" for="input-name">Your name</label>
-      <input type="text" id="input-name" placeholder="e.g. Alice" autocomplete="off" maxlength="30">
-    </div>
-
     <button class="btn btn-primary" id="btn-create">✦ Create a new room</button>
 
     <div class="divider">or join existing</div>
@@ -301,7 +296,6 @@
       Room: <strong id="hdr-room-id">—</strong>
       <button class="copy-btn" id="btn-copy">Copy link</button>
     </div>
-    <div class="header-player">Playing as <span id="hdr-player-name">—</span></div>
   </header>
 
   <main class="room-main">
@@ -377,7 +371,6 @@
   const SPECIAL = new Set(['?','☕']);
 
   // ── State ─────────────────────────────────────────────────────────────────────
-  let myName = '';
   let myVote = null;
   let isModerator = false;
   let roomId = null;
@@ -404,24 +397,18 @@
 
   // ── Landing ───────────────────────────────────────────────────────────────────
   $('btn-create').addEventListener('click', () => {
-    myName = $('input-name').value.trim() || 'Anonymous';
-    socket.emit('create-room', { name: myName });
+    socket.emit('create-room', { name: 'Anonymous' });
   });
 
   function doJoin() {
     const rid = $('input-room').value.trim();
     if (!rid) { toast('Enter a room number'); return; }
-    myName = $('input-name').value.trim() || 'Anonymous';
     $('join-error').style.display = 'none';
-    socket.emit('join-room', { name: myName, roomId: rid });
+    socket.emit('join-room', { name: 'Anonymous', roomId: rid });
   }
 
   $('btn-join').addEventListener('click', doJoin);
   $('input-room').addEventListener('keydown', e => e.key === 'Enter' && doJoin());
-  $('input-name').addEventListener('keydown', e => {
-    if (e.key !== 'Enter') return;
-    $('input-room').value.trim() ? doJoin() : $('btn-create').click();
-  });
 
   // ── Room controls ─────────────────────────────────────────────────────────────
   $('btn-copy').addEventListener('click', () => {
@@ -481,7 +468,6 @@
   function enterRoom(id) {
     roomId = id;
     $('hdr-room-id').textContent = id;
-    $('hdr-player-name').textContent = myName;
     history.pushState(null, '', `/room/${id}`);
     $('view-landing').classList.add('hidden');
     $('view-room').classList.remove('hidden');
@@ -657,13 +643,15 @@
     distEl.innerHTML = `<div class="dist-label">Distribution</div>${rows}`;
   }
 
-  // ── Init: pre-fill room ID from URL ───────────────────────────────────────────
+  // ── Init: auto-join if room ID is in URL ──────────────────────────────────────
   (() => {
     const rid = getRoomFromPath();
-    if (rid) {
-      $('input-room').value = rid;
+    if (!rid) return;
+    function autoJoin() {
+      socket.emit('join-room', { name: 'Anonymous', roomId: rid });
     }
-    $('input-name').focus();
+    if (socket.connected) autoJoin();
+    else socket.once('connect', autoJoin);
   })();
 </script>
 </body>
