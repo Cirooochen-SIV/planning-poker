@@ -234,23 +234,30 @@
     .mod-star { color: #f59e0b; font-size: 0.7rem; margin-left: 2px; }
 
     /* ── Results ─────────────────────────────────────────────── */
-    .stats-row { display: flex; gap: 32px; flex-wrap: wrap; padding-bottom: 20px; }
-    .stat { text-align: center; }
-    .stat-val { font-size: 2.2rem; font-weight: 800; color: var(--accent); line-height: 1; }
-    .stat-label { font-size: 0.68rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+    .stats-row { display: flex; justify-content: space-between; flex-wrap: wrap; padding-bottom: 4px; }
+    .stat { display: flex; flex-direction: column; gap: 4px; }
+    .stat-val { font-size: 2.25rem; font-weight: 500; color: var(--accent); line-height: 36px; }
+    .stat-val-secondary { font-size: 1.5rem; font-weight: 500; color: #606060; line-height: 36px; }
+    .stat-label { font-size: 0.68rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; }
 
-    .dist-label { font-size: 0.68rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; font-weight: 700; }
+    .dist-label { font-size: 0.68rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; font-weight: 700; }
 
     .dist-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-    .dist-val { width: 36px; text-align: right; font-weight: 700; font-size: 0.875rem; color: var(--text-2); }
-    .dist-track { flex: 1; background: var(--bg); border-radius: 6px; height: 28px; overflow: hidden; }
+    .dist-val {
+      width: 32px; height: 40px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid #e9eaeb; border-radius: 4px;
+      font-weight: 700; font-size: 0.875rem; color: var(--text-2);
+    }
+    .dist-track-outer { flex: 1; display: flex; align-items: center; gap: 10px; }
+    .dist-track { flex: 1; background: #f2f2f2; border-radius: 6px; height: 10px; overflow: hidden; position: relative; }
     .dist-fill {
-      height: 100%; border-radius: 6px;
+      position: absolute; top: 1px; left: 1px;
+      height: 8px; border-radius: 6px;
       background: linear-gradient(90deg, var(--accent) 0%, #a855f7 100%);
       transition: width 0.6s cubic-bezier(.4,0,.2,1);
-      display: flex; align-items: center; padding: 0 10px;
-      color: white; font-size: 0.8rem; font-weight: 600; min-width: 42px;
     }
+    .dist-count { font-size: 0.75rem; font-weight: 500; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
 
     /* ── Controls ────────────────────────────────────────────── */
     .controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
@@ -294,8 +301,9 @@
       .room-header { padding: 10px 14px; }
       .vcard { width: 46px; height: 62px; font-size: 0.95rem; }
       .pcard { width: 56px; height: 74px; }
-      .stats-row { gap: 20px; }
-      .stat-val { font-size: 1.6rem; }
+      .stats-row { gap: 16px; }
+      .stat-val { font-size: 1.8rem; }
+      .stat-val-secondary { font-size: 1.25rem; }
     }
   </style>
 </head>
@@ -360,11 +368,8 @@
 
     <!-- Results (shown after reveal) -->
     <div class="section hidden" id="results-section">
-      <div class="section-head">
-        <span class="section-label">Results</span>
-      </div>
-      <div class="stats-row" id="stats-row"></div>
       <div id="dist"></div>
+      <div id="stats-row"></div>
     </div>
 
     <!-- Controls -->
@@ -629,11 +634,11 @@
       .map(p => p.vote === '½' ? 0.5 : parseFloat(p.vote))
       .filter(n => !isNaN(n));
 
-    const statsRow = $('stats-row');
-    const distEl   = $('dist');
+    const statsEl = $('stats-row');
+    const distEl  = $('dist');
 
     if (numeric.length === 0) {
-      statsRow.innerHTML = `<p style="color:var(--text-3);font-size:.9rem">No numeric votes to analyze.</p>`;
+      statsEl.innerHTML = `<p style="color:var(--text-3);font-size:.9rem">No numeric votes to analyze.</p>`;
       distEl.innerHTML = '';
       return;
     }
@@ -647,25 +652,7 @@
     const topEntry  = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
     const consensus = Object.keys(counts).length === 1;
 
-    statsRow.innerHTML = `
-      <div class="stat">
-        <div class="stat-val">${avg % 1 === 0 ? avg : avg.toFixed(1)}</div>
-        <div class="stat-label">Average</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val">${topEntry[0]}${consensus ? ' 🎉' : ''}</div>
-        <div class="stat-label">Most voted</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val">${min}</div>
-        <div class="stat-label">Minimum</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val">${max}</div>
-        <div class="stat-label">Maximum</div>
-      </div>
-    `;
-
+    // Distribution (rendered first in DOM)
     const maxCount = Math.max(...Object.values(counts));
     const rows = Object.entries(counts)
       .sort((a, b) => {
@@ -675,15 +662,39 @@
       .map(([val, count]) => `
         <div class="dist-row">
           <div class="dist-val">${val}</div>
-          <div class="dist-track">
-            <div class="dist-fill" style="width:${(count / maxCount) * 100}%">
-              ${count} vote${count > 1 ? 's' : ''}
+          <div class="dist-track-outer">
+            <div class="dist-track">
+              <div class="dist-fill" style="width:calc(${(count / maxCount) * 100}% - 2px)"></div>
             </div>
+            <span class="dist-count">${count} vote${count > 1 ? 's' : ''}</span>
           </div>
         </div>
       `).join('');
 
     distEl.innerHTML = `<div class="dist-label">Distribution</div>${rows}`;
+
+    // Stats (rendered below distribution)
+    statsEl.innerHTML = `
+      <div class="section-label" style="margin-bottom:16px">Results</div>
+      <div class="stats-row">
+        <div class="stat">
+          <div class="stat-val">${topEntry[0]}${consensus ? ' 🎉' : ''}</div>
+          <div class="stat-label">Most voted</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val-secondary">${avg % 1 === 0 ? avg : avg.toFixed(1)}</div>
+          <div class="stat-label">Average</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val-secondary">${min}</div>
+          <div class="stat-label">Minimum</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val-secondary">${max}</div>
+          <div class="stat-label">Maximum</div>
+        </div>
+      </div>
+    `;
   }
 
   // ── Footer clock ──────────────────────────────────────────────────────────────
