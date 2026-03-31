@@ -243,7 +243,9 @@
     .stat-val-secondary { font-size: 1.5rem; font-weight: 500; color: #606060; line-height: 36px; }
     .stat-label { font-size: 0.68rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; }
 
-    .dist-label { font-size: 0.68rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; font-weight: 700; }
+    #results-section { display: flex; flex-direction: column; gap: 24px; }
+    .dist-label { font-size: 0.68rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 16px; font-weight: 700; }
+    .stats-card { background: #fafafa; border: 1px solid #e9eaeb; border-radius: 12px; padding: 16px 24px; width: 100%; }
 
     .dist-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     .dist-val {
@@ -674,27 +676,28 @@
         </div>
       `).join('');
 
-    distEl.innerHTML = `<div class="dist-label">Distribution</div>${rows}`;
+    distEl.innerHTML = `<div class="dist-label">Results</div>${rows}`;
 
-    // Stats (rendered below distribution)
+    // Stats card (rendered below distribution)
     statsEl.innerHTML = `
-      <div class="section-label" style="margin-bottom:16px">Results</div>
-      <div class="stats-row">
-        <div class="stat">
-          <div class="stat-val">${topEntry[0]}${consensus ? ' 🎉' : ''}</div>
-          <div class="stat-label">Most voted</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val-secondary">${avg % 1 === 0 ? avg : avg.toFixed(1)}</div>
-          <div class="stat-label">Average</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val-secondary">${min}</div>
-          <div class="stat-label">Minimum</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val-secondary">${max}</div>
-          <div class="stat-label">Maximum</div>
+      <div class="stats-card">
+        <div class="stats-row">
+          <div class="stat">
+            <div class="stat-val">${topEntry[0]}${consensus ? ' 🎉' : ''}</div>
+            <div class="stat-label">Most voted</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val-secondary">${avg % 1 === 0 ? avg : avg.toFixed(1)}</div>
+            <div class="stat-label">Average</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val-secondary">${min}</div>
+            <div class="stat-label">Minimum</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val-secondary">${max}</div>
+            <div class="stat-label">Maximum</div>
+          </div>
         </div>
       </div>
     `;
