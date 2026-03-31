@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planning Poker</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --accent: #6366f1;
+      --accent-dark: #4338ca;
+      --accent-light: #eef2ff;
+      --text: #1e293b;
+      --text-2: #475569;
+      --text-3: #94a3b8;
+      --r: 10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ── Landing ─────────────────────────────────────────────── */
+    #view-landing {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 60%);
+    }
+
+    .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+    .brand-icon { font-size: 2.8rem; line-height: 1; }
+    .brand-name {
+      font-size: 2.4rem; font-weight: 800; letter-spacing: -1.5px;
+      background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .brand-tagline { color: var(--text-2); font-size: 1rem; margin-bottom: 40px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%; max-width: 380px;
+      box-shadow: 0 4px 24px rgba(99,102,241,0.1), 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .form-field { margin-bottom: 18px; }
+    .form-label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    input[type=text] {
+      width: 100%; padding: 11px 14px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 0.975rem; color: var(--text); background: var(--surface);
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input[type=text]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 11px 20px; border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; border: none; transition: all 0.15s; line-height: 1; font-family: inherit;
+    }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary { background: var(--accent); color: white; width: 100%; padding: 13px; font-size: 1rem; }
+    .btn-primary:hover { background: var(--accent-dark); }
+
+    .btn-outline { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); white-space: nowrap; }
+    .btn-outline:hover { background: var(--accent-light); }
+
+    .divider {
+      display: flex; align-items: center; gap: 12px; margin: 20px 0;
+      color: var(--text-3); font-size: 0.825rem;
+    }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .join-row { display: flex; gap: 8px; }
+    .join-row input { flex: 1; }
+
+    .error-msg { color: #ef4444; font-size: 0.85rem; margin-top: 8px; display: none; }
+
+    /* ── Room layout ─────────────────────────────────────────── */
+    #view-room { min-height: 100vh; display: flex; flex-direction: column; }
+
+    .room-header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 12px 24px; display: flex; align-items: center;
+      justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      position: sticky; top: 0; z-index: 10;
+    }
+
+    .header-brand {
+      font-size: 1.1rem; font-weight: 800; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--accent), #a855f7);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .room-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--accent-light); border-radius: 20px; padding: 5px 14px;
+      font-size: 0.875rem; color: var(--accent); font-weight: 500;
+    }
+    .room-badge strong { font-size: 1rem; font-weight: 700; }
+
+    .copy-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--accent); font-size: 0.8rem; font-weight: 600;
+      font-family: inherit; text-decoration: underline; text-underline-offset: 2px;
+    }
+
+    .header-player { font-size: 0.85rem; color: var(--text-3); }
+    .header-player span { color: var(--text-2); font-weight: 500; }
+
+    .room-main { flex: 1; padding: 24px; max-width: 1100px; width: 100%; margin: 0 auto; }
+
+    /* ── Section shell ───────────────────────────────────────── */
+    .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; margin-bottom: 16px; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-label { font-size: 0.72rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; }
+
+    /* ── Vote cards ──────────────────────────────────────────── */
+    .deck { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .vcard {
+      width: 54px; height: 72px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 700;
+      border-radius: 8px; cursor: pointer;
+      border: 2px solid var(--border); background: var(--surface); color: var(--text-2);
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s, color 0.15s;
+      user-select: none;
+    }
+
+    .vcard:hover:not(.vcard--selected):not(.vcard--disabled) {
+      border-color: var(--accent); color: var(--accent);
+      transform: translateY(-6px);
+      box-shadow: 0 8px 20px rgba(99,102,241,0.2);
+    }
+
+    .vcard--selected {
+      border-color: var(--accent); background: var(--accent); color: white;
+      transform: translateY(-6px);
+      box-shadow: 0 8px 24px rgba(99,102,241,0.4);
+    }
+
+    .vcard--disabled { opacity: 0.45; cursor: default; pointer-events: none; }
+
+    select.pack-picker {
+      padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 0.875rem; color: var(--text); background: var(--surface);
+      cursor: pointer; outline: none; font-family: inherit;
+    }
+    select.pack-picker:focus { border-color: var(--accent); }
+    select.pack-picker:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Player grid ─────────────────────────────────────────── */
+    .players-wrap { display: flex; flex-wrap: wrap; gap: 20px; }
+
+    .player { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+    .pcard {
+      width: 64px; height: 86px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; font-weight: 800;
+      border: 2px solid var(--border);
+      transition: all 0.3s ease;
+    }
+
+    .pcard--empty { background: var(--bg); color: var(--text-3); border-style: dashed; }
+    .pcard--empty::after { content: '–'; }
+
+    .pcard--voted {
+      background: var(--accent); border-color: var(--accent); color: white;
+    }
+    .pcard--voted::after { content: '✓'; font-size: 1.6rem; }
+
+    .pcard--revealed { background: var(--surface); border-color: var(--border-strong); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .pcard--special { color: var(--text-3); }
+    .pcard--observer { background: var(--bg); border-style: dashed; color: var(--text-3); font-size: 1.3rem; }
+    .pcard--observer::after { content: '👁'; }
+
+    .pname { font-size: 0.78rem; color: var(--text-2); max-width: 80px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pname--you { color: var(--accent); font-weight: 600; }
+    .mod-star { color: #f59e0b; font-size: 0.7rem; margin-left: 2px; }
+
+    /* ── Results ─────────────────────────────────────────────── */
+    .stats-row { display: flex; gap: 32px; flex-wrap: wrap; padding-bottom: 20px; }
+    .stat { text-align: center; }
+    .stat-val { font-size: 2.2rem; font-weight: 800; color: var(--accent); line-height: 1; }
+    .stat-label { font-size: 0.68rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+
+    .dist-label { font-size: 0.68rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; font-weight: 700; }
+
+    .dist-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .dist-val { width: 36px; text-align: right; font-weight: 700; font-size: 0.875rem; color: var(--text-2); }
+    .dist-track { flex: 1; background: var(--bg); border-radius: 6px; height: 28px; overflow: hidden; }
+    .dist-fill {
+      height: 100%; border-radius: 6px;
+      background: linear-gradient(90deg, var(--accent) 0%, #a855f7 100%);
+      transition: width 0.6s cubic-bezier(.4,0,.2,1);
+      display: flex; align-items: center; padding: 0 10px;
+      color: white; font-size: 0.8rem; font-weight: 600; min-width: 42px;
+    }
+
+    /* ── Controls ────────────────────────────────────────────── */
+    .controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
+
+    .voter-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+
+    .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .switch input { display: none; }
+    .switch-track { position: absolute; inset: 0; background: var(--border-strong); border-radius: 12px; transition: background 0.25s; }
+    .switch-thumb { position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: transform 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .switch input:checked ~ .switch-track { background: var(--accent); }
+    .switch input:checked ~ .switch-thumb { transform: translateX(18px); }
+
+    .voter-label { font-size: 0.9rem; color: var(--text-2); font-weight: 500; }
+
+    .cta-row { display: flex; gap: 10px; }
+
+    .btn-ghost { background: var(--bg); color: var(--text-2); border: 1.5px solid var(--border); padding: 10px 18px; }
+    .btn-ghost:hover { background: var(--border); }
+
+    .btn-reveal { background: var(--accent); color: white; padding: 10px 24px; }
+    .btn-reveal:hover:not(:disabled) { background: var(--accent-dark); }
+    .btn-reveal:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .status-hint { font-size: 0.875rem; color: var(--text-3); font-style: italic; }
+
+    /* ── Toast ───────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: #1e293b; color: white; padding: 10px 20px;
+      border-radius: 8px; font-size: 0.9rem; font-weight: 500;
+      opacity: 0; transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none; z-index: 9999; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .room-main { padding: 14px; }
+      .room-header { padding: 10px 14px; }
+      .vcard { width: 46px; height: 62px; font-size: 0.95rem; }
+      .pcard { width: 56px; height: 74px; }
+      .stats-row { gap: 20px; }
+      .stat-val { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ LANDING ══════════════════════════════════════════════════════════════ -->
+<div id="view-landing">
+  <div class="brand">
+    <div class="brand-icon">🃏</div>
+    <div class="brand-name">Planning Poker</div>
+  </div>
+  <p class="brand-tagline">Estimate story points together, in real time.</p>
+
+  <div class="card">
+    <div class="form-field">
+      <label class="form-label" for="input-name">Your name</label>
+      <input type="text" id="input-name" placeholder="e.g. Alice" autocomplete="off" maxlength="30">
+    </div>
+
+    <button class="btn btn-primary" id="btn-create">✦ Create a new room</button>
+
+    <div class="divider">or join existing</div>
+
+    <div class="join-row">
+      <input type="text" id="input-room" placeholder="Room number" maxlength="10" autocomplete="off">
+      <button class="btn btn-outline" id="btn-join">Join</button>
+    </div>
+    <div class="error-msg" id="join-error"></div>
+  </div>
+</div>
+
+<!-- ══ ROOM ═════════════════════════════════════════════════════════════════ -->
+<div id="view-room" class="hidden">
+  <header class="room-header">
+    <div class="header-brand">🃏 Planning Poker</div>
+    <div class="room-badge">
+      Room: <strong id="hdr-room-id">—</strong>
+      <button class="copy-btn" id="btn-copy">Copy link</button>
+    </div>
+    <div class="header-player">Playing as <span id="hdr-player-name">—</span></div>
+  </header>
+
+  <main class="room-main">
+
+    <!-- Card Deck -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-label">Choose your estimate</span>
+        <select class="pack-picker" id="pack-select">
+          <option value="mountain-goat">Mountain Goat</option>
+          <option value="fibonacci">Fibonacci</option>
+          <option value="sequential">Sequential</option>
+          <option value="playing-cards">Playing Cards</option>
+          <option value="t-shirt">T-Shirt sizes</option>
+        </select>
+      </div>
+      <div class="deck" id="card-deck"></div>
+    </div>
+
+    <!-- Players -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-label">Players</span>
+        <span id="vote-counter" style="font-size:0.85rem;color:var(--text-3)"></span>
+      </div>
+      <div class="players-wrap" id="players-wrap"></div>
+    </div>
+
+    <!-- Results (shown after reveal) -->
+    <div class="section hidden" id="results-section">
+      <div class="section-head">
+        <span class="section-label">Results</span>
+      </div>
+      <div class="stats-row" id="stats-row"></div>
+      <div id="dist"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="section">
+      <div class="controls">
+        <label class="voter-toggle">
+          <div class="switch">
+            <input type="checkbox" id="toggle-voter" checked>
+            <div class="switch-track"></div>
+            <div class="switch-thumb"></div>
+          </div>
+          <span class="voter-label" id="voter-label-text">I am voting</span>
+        </label>
+
+        <div id="mod-controls" class="cta-row">
+          <button class="btn btn-ghost" id="btn-reset">↺ Reset</button>
+          <button class="btn btn-reveal" id="btn-reveal">👁 Reveal votes</button>
+        </div>
+        <p id="non-mod-hint" class="status-hint hidden">Waiting for moderator to reveal…</p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  // ── Card packs ────────────────────────────────────────────────────────────────
+  const PACKS = {
+    'mountain-goat': { cards: ['0','½','1','2','3','5','8','13','20','40','100','?','☕'] },
+    'fibonacci':     { cards: ['0','1','2','3','5','8','13','21','34','55','89','?','☕'] },
+    'sequential':    { cards: ['0','1','2','3','4','5','6','7','8','9','10','?','☕'] },
+    'playing-cards': { cards: ['A','2','3','5','8','K','?','☕'] },
+    't-shirt':       { cards: ['XS','S','M','L','XL','XXL','?','☕'] },
+  };
+  const SPECIAL = new Set(['?','☕']);
+
+  // ── State ─────────────────────────────────────────────────────────────────────
+  let myName = '';
+  let myVote = null;
+  let isModerator = false;
+  let roomId = null;
+  let roomState = null;
+
+  // ── Socket ────────────────────────────────────────────────────────────────────
+  const socket = io();
+
+  // ── Helpers ───────────────────────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+
+  function toast(msg, ms = 2500) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._tid);
+    t._tid = setTimeout(() => t.classList.remove('show'), ms);
+  }
+
+  function getRoomFromPath() {
+    const m = location.pathname.match(/^\/room\/(\w+)/);
+    return m ? m[1] : null;
+  }
+
+  // ── Landing ───────────────────────────────────────────────────────────────────
+  $('btn-create').addEventListener('click', () => {
+    myName = $('input-name').value.trim() || 'Anonymous';
+    socket.emit('create-room', { name: myName });
+  });
+
+  function doJoin() {
+    const rid = $('input-room').value.trim();
+    if (!rid) { toast('Enter a room number'); return; }
+    myName = $('input-name').value.trim() || 'Anonymous';
+    $('join-error').style.display = 'none';
+    socket.emit('join-room', { name: myName, roomId: rid });
+  }
+
+  $('btn-join').addEventListener('click', doJoin);
+  $('input-room').addEventListener('keydown', e => e.key === 'Enter' && doJoin());
+  $('input-name').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    $('input-room').value.trim() ? doJoin() : $('btn-create').click();
+  });
+
+  // ── Room controls ─────────────────────────────────────────────────────────────
+  $('btn-copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(`${location.origin}/room/${roomId}`)
+      .then(() => toast('Link copied!'))
+      .catch(() => toast(`Share room #${roomId}`));
+  });
+
+  $('pack-select').addEventListener('change', e => {
+    if (!isModerator) {
+      $('pack-select').value = roomState?.pack || 'mountain-goat';
+      toast('Only the moderator can change the card pack');
+      return;
+    }
+    socket.emit('change-pack', { pack: e.target.value });
+  });
+
+  $('toggle-voter').addEventListener('change', e => {
+    const isVoter = e.target.checked;
+    $('voter-label-text').textContent = isVoter ? 'I am voting' : 'Observer mode';
+    if (!isVoter) myVote = null;
+    socket.emit('toggle-voter', { isVoter });
+  });
+
+  $('btn-reset').addEventListener('click', () => socket.emit('reset'));
+  $('btn-reveal').addEventListener('click', () => socket.emit('reveal'));
+
+  // ── Socket events ─────────────────────────────────────────────────────────────
+  socket.on('room-created', ({ roomId: id }) => enterRoom(id));
+  socket.on('room-joined',  ({ roomId: id }) => enterRoom(id));
+
+  socket.on('room-expired', () => {
+    roomId = null;
+    roomState = null;
+    myVote = null;
+    $('view-room').classList.add('hidden');
+    $('view-landing').classList.remove('hidden');
+    $('input-room').value = '';
+    history.pushState(null, '', '/');
+    toast('This room expired after 24 hours of inactivity.', 5000);
+  });
+
+  socket.on('room-error', ({ message }) => {
+    const err = $('join-error');
+    err.textContent = message;
+    err.style.display = 'block';
+  });
+
+  socket.on('room-update', (state) => {
+    roomState = state;
+    isModerator = state.moderatorId === socket.id;
+    const me = state.players.find(p => p.id === socket.id);
+    if (me && !me.hasVoted) myVote = null;
+    render(state);
+  });
+
+  function enterRoom(id) {
+    roomId = id;
+    $('hdr-room-id').textContent = id;
+    $('hdr-player-name').textContent = myName;
+    history.pushState(null, '', `/room/${id}`);
+    $('view-landing').classList.add('hidden');
+    $('view-room').classList.remove('hidden');
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+  function render(state) {
+    $('pack-select').value = state.pack;
+    $('pack-select').disabled = !isModerator;
+
+    renderDeck(state.pack, state.revealed, state.players);
+    renderPlayers(state.players, state.revealed);
+
+    if (state.revealed) {
+      $('results-section').classList.remove('hidden');
+      renderResults(state.players);
+    } else {
+      $('results-section').classList.add('hidden');
+    }
+
+    if (isModerator) {
+      $('mod-controls').classList.remove('hidden');
+      $('non-mod-hint').classList.add('hidden');
+      $('btn-reveal').disabled = state.revealed;
+      $('btn-reveal').textContent = state.revealed ? '✓ Revealed' : '👁 Reveal votes';
+    } else {
+      $('mod-controls').classList.add('hidden');
+      $('non-mod-hint').classList.remove('hidden');
+      $('non-mod-hint').textContent = state.revealed
+        ? '✓ Votes have been revealed'
+        : 'Waiting for moderator to reveal…';
+    }
+
+    const me = state.players.find(p => p.id === socket.id);
+    if (me) {
+      $('toggle-voter').checked = me.isVoter;
+      $('voter-label-text').textContent = me.isVoter ? 'I am voting' : 'Observer mode';
+    }
+  }
+
+  function renderDeck(pack, revealed, players) {
+    const deck = $('card-deck');
+    const me = players.find(p => p.id === socket.id);
+    const isVoter = me?.isVoter ?? true;
+    const cards = PACKS[pack]?.cards ?? PACKS['mountain-goat'].cards;
+
+    deck.innerHTML = '';
+    cards.forEach(val => {
+      const el = document.createElement('div');
+      el.className = 'vcard';
+      if (val === myVote) el.classList.add('vcard--selected');
+      if (revealed || !isVoter) el.classList.add('vcard--disabled');
+      el.textContent = val;
+      el.addEventListener('click', () => {
+        if (revealed || !isVoter) return;
+        myVote = (val === myVote) ? null : val;
+        socket.emit('vote', { value: myVote });
+        renderDeck(pack, revealed, players);
+      });
+      deck.appendChild(el);
+    });
+  }
+
+  function renderPlayers(players, revealed) {
+    const wrap = $('players-wrap');
+    wrap.innerHTML = '';
+
+    const voters = players.filter(p => p.isVoter);
+    const voted  = voters.filter(p => p.hasVoted);
+    $('vote-counter').textContent = `${voted.length} / ${voters.length} voted`;
+
+    // Voters first, then observers
+    const sorted = [...players].sort((a, b) => (b.isVoter - a.isVoter));
+
+    sorted.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'player';
+
+      const card = document.createElement('div');
+      card.className = 'pcard';
+
+      if (!p.isVoter) {
+        card.classList.add('pcard--observer');
+      } else if (revealed && p.vote !== null) {
+        card.classList.add('pcard--revealed');
+        if (SPECIAL.has(p.vote)) card.classList.add('pcard--special');
+        card.textContent = p.vote;
+      } else if (!revealed && p.hasVoted) {
+        card.classList.add('pcard--voted');
+      } else {
+        card.classList.add('pcard--empty');
+      }
+
+      const name = document.createElement('div');
+      name.className = 'pname' + (p.id === socket.id ? ' pname--you' : '');
+      name.textContent = p.id === socket.id ? `${p.name} (you)` : p.name;
+
+      if (p.isModerator) {
+        const star = document.createElement('span');
+        star.className = 'mod-star';
+        star.title = 'Moderator';
+        star.textContent = '★';
+        name.appendChild(star);
+      }
+
+      div.appendChild(card);
+      div.appendChild(name);
+      wrap.appendChild(div);
+    });
+  }
+
+  function renderResults(players) {
+    const votes = players.filter(p => p.vote !== null && p.isVoter);
+    const numeric = votes
+      .filter(p => !SPECIAL.has(p.vote))
+      .map(p => p.vote === '½' ? 0.5 : parseFloat(p.vote))
+      .filter(n => !isNaN(n));
+
+    const statsRow = $('stats-row');
+    const distEl   = $('dist');
+
+    if (numeric.length === 0) {
+      statsRow.innerHTML = `<p style="color:var(--text-3);font-size:.9rem">No numeric votes to analyze.</p>`;
+      distEl.innerHTML = '';
+      return;
+    }
+
+    const avg = numeric.reduce((a, b) => a + b, 0) / numeric.length;
+    const min = Math.min(...numeric);
+    const max = Math.max(...numeric);
+
+    const counts = {};
+    votes.forEach(p => { counts[p.vote] = (counts[p.vote] || 0) + 1; });
+    const topEntry  = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    const consensus = Object.keys(counts).length === 1;
+
+    statsRow.innerHTML = `
+      <div class="stat">
+        <div class="stat-val">${avg % 1 === 0 ? avg : avg.toFixed(1)}</div>
+        <div class="stat-label">Average</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">${topEntry[0]}${consensus ? ' 🎉' : ''}</div>
+        <div class="stat-label">Most voted</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">${min}</div>
+        <div class="stat-label">Minimum</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">${max}</div>
+        <div class="stat-label">Maximum</div>
+      </div>
+    `;
+
+    const maxCount = Math.max(...Object.values(counts));
+    const rows = Object.entries(counts)
+      .sort((a, b) => {
+        const toNum = v => v === '½' ? 0.5 : (isNaN(parseFloat(v)) ? Infinity : parseFloat(v));
+        return toNum(a[0]) - toNum(b[0]);
+      })
+      .map(([val, count]) => `
+        <div class="dist-row">
+          <div class="dist-val">${val}</div>
+          <div class="dist-track">
+            <div class="dist-fill" style="width:${(count / maxCount) * 100}%">
+              ${count} vote${count > 1 ? 's' : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+    distEl.innerHTML = `<div class="dist-label">Distribution</div>${rows}`;
+  }
+
+  // ── Init: pre-fill room ID from URL ───────────────────────────────────────────
+  (() => {
+    const rid = getRoomFromPath();
+    if (rid) {
+      $('input-room').value = rid;
+    }
+    $('input-name').focus();
+  })();
+</script>
+</body>
+</html>
