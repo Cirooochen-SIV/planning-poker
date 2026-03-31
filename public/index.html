@@ -27,6 +27,40 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      padding-bottom: 56px;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    #app-footer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 56px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 20;
+    }
+
+    .footer-clock { display: flex; align-items: center; gap: 12px; }
+
+    .clock-locs { display: flex; flex-direction: column; gap: 2px; }
+
+    .clock-loc-btn {
+      background: none; border: none; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; font-family: inherit;
+      color: var(--text-3); padding: 0;
+    }
+    .clock-loc-btn.active { color: var(--text); font-weight: 600; }
+    .clock-loc-btn .dot { font-size: 10px; min-width: 16px; }
+
+    .footer-credit {
+      font-size: 0.78rem;
+      color: var(--text-3);
+      letter-spacing: 0.02em;
     }
 
     .hidden { display: none !important; }
@@ -359,6 +393,15 @@
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- Footer -->
+<footer id="app-footer">
+  <div class="footer-clock">
+    <svg id="clock-svg" width="44" height="44" viewBox="0 0 52 52"></svg>
+    <div class="clock-locs" id="clock-locs"></div>
+  </div>
+  <span class="footer-credit">Made with love by Ciro</span>
+</footer>
+
 <script>
   // ── Card packs ────────────────────────────────────────────────────────────────
   const PACKS = {
@@ -642,6 +685,59 @@
 
     distEl.innerHTML = `<div class="dist-label">Distribution</div>${rows}`;
   }
+
+  // ── Footer clock ──────────────────────────────────────────────────────────────
+  const clockLocations = [
+    { label: 'Berlin',  tz: 'Europe/Berlin' },
+    { label: 'Romania', tz: 'Europe/Bucharest' },
+  ];
+  let activeClockIdx = 0;
+
+  function getDateInTz(tz) {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+  }
+
+  function renderClockSvg(date) {
+    const s = date.getSeconds();
+    const m = date.getMinutes();
+    const h = date.getHours() % 12;
+    const secDeg = s * 6;
+    const minDeg = m * 6 + s * 0.1;
+    const hrDeg  = h * 30 + m * 0.5;
+    const r = deg => deg * Math.PI / 180;
+
+    const ticks = Array.from({ length: 12 }, (_, i) => {
+      const a = r(i * 30);
+      return `<line x1="${26 + 20 * Math.sin(a)}" y1="${26 - 20 * Math.cos(a)}" x2="${26 + 22 * Math.sin(a)}" y2="${26 - 22 * Math.cos(a)}" stroke="#a09a90" stroke-width="1"/>`;
+    }).join('');
+
+    $('clock-svg').innerHTML = `
+      <circle cx="26" cy="26" r="24" fill="none" stroke="#c8c4b8" stroke-width="1.2"/>
+      ${ticks}
+      <line x1="26" y1="26" x2="${26 + 12 * Math.sin(r(hrDeg))}"  y2="${26 - 12 * Math.cos(r(hrDeg))}"  stroke="#2a2a2a" stroke-width="2"   stroke-linecap="round"/>
+      <line x1="26" y1="26" x2="${26 + 17 * Math.sin(r(minDeg))}" y2="${26 - 17 * Math.cos(r(minDeg))}" stroke="#2a2a2a" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="26" y1="26" x2="${26 + 19 * Math.sin(r(secDeg))}" y2="${26 - 19 * Math.cos(r(secDeg))}" stroke="#c0392b" stroke-width="1"   stroke-linecap="round"/>
+      <circle cx="26" cy="26" r="1.5" fill="#2a2a2a"/>
+    `;
+  }
+
+  function renderClockLocs() {
+    $('clock-locs').innerHTML = clockLocations.map((loc, i) => `
+      <button class="clock-loc-btn ${i === activeClockIdx ? 'active' : ''}"
+              onclick="activeClockIdx=${i};renderClockLocs();renderClockSvg(getDateInTz(clockLocations[${i}].tz))">
+        <span class="dot">${i === activeClockIdx ? '[•]' : '[ ]'}</span>
+        <span>${loc.label}</span>
+      </button>
+    `).join('');
+  }
+
+  function tickClock() {
+    renderClockSvg(getDateInTz(clockLocations[activeClockIdx].tz));
+  }
+
+  renderClockLocs();
+  tickClock();
+  setInterval(tickClock, 1000);
 
   // ── Init: auto-join if room ID is in URL ──────────────────────────────────────
   (() => {
