@@ -33,6 +33,28 @@
       padding-bottom: 56px;
     }
 
+    /* ── Estimate hint ───────────────────────────────────────── */
+    .estimate-hint { font-size: 0.8rem; color: var(--text-2); margin-bottom: 14px; line-height: 1.5; }
+
+    /* ── Special vote hint ───────────────────────────────────── */
+    .special-hint { margin-top: 12px; font-size: 0.8rem; color: var(--text-2); border-top: 1px solid var(--border); padding-top: 10px; }
+
+    /* ── Consensus overlay ───────────────────────────────────── */
+    #consensus-overlay {
+      position: fixed; inset: 0; z-index: 9998;
+      background: rgba(0,0,0,0.72);
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+    }
+    .consensus-content { text-align: center; }
+    .consensus-heading { color: white; font-size: 2rem; font-weight: 700; margin-bottom: 24px; letter-spacing: -0.5px; }
+    .consensus-img { width: 340px; max-width: 80vw; border-radius: 16px; }
+    #confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden; }
+    .confetti-piece { position: absolute; border-radius: 2px; animation: confetti-fall linear forwards; }
+    @keyframes confetti-fall {
+      0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+    }
+
     /* ── Footer ──────────────────────────────────────────────── */
     #app-footer {
       position: fixed;
@@ -144,8 +166,7 @@
 
     .header-brand {
       font-size: 1.1rem; font-weight: 800; letter-spacing: -0.5px;
-      background: linear-gradient(135deg, var(--accent), #a855f7);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      color: var(--text);
     }
 
     .room-badge {
@@ -169,7 +190,7 @@
     /* ── Section shell ───────────────────────────────────────── */
     .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; margin-bottom: 16px; }
     .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    .section-label { font-size: 0.72rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; }
+    .section-label { font-size: 0.72rem; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.07em; }
 
     /* ── Vote cards ──────────────────────────────────────────── */
     .deck { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -359,6 +380,7 @@
           <option value="t-shirt">T-Shirt sizes</option>
         </select>
       </div>
+      <p class="estimate-hint">💡 Before voting, please consider uncertainty, complexity, and dependencies of the ticket.</p>
       <div class="deck" id="card-deck"></div>
     </div>
 
@@ -403,6 +425,15 @@
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- Consensus overlay -->
+<div id="consensus-overlay" class="hidden">
+  <div class="consensus-content">
+    <h2 class="consensus-heading">We're all on the same page 🎉</h2>
+    <img src="/brain-power.png" class="consensus-img" alt="">
+  </div>
+  <div id="confetti-container"></div>
+</div>
+
 <!-- Footer -->
 <footer id="app-footer">
   <div class="footer-clock">
@@ -425,6 +456,7 @@
 
   // ── State ─────────────────────────────────────────────────────────────────────
   let myVote = null;
+  let consensusShownForThisRound = false;
   let isModerator = false;
   let roomId = null;
   let roomState = null;
@@ -527,9 +559,31 @@
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
+  function launchConfetti() {
+    const container = $('confetti-container');
+    container.innerHTML = '';
+    const colors = ['#6366f1','#a855f7','#f59e0b','#10b981','#ef4444','#3b82f6','#ffffff'];
+    for (let i = 0; i < 80; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.cssText = `
+        left:${Math.random()*100}%;
+        background:${colors[Math.floor(Math.random()*colors.length)]};
+        animation-duration:${1.5+Math.random()*2}s;
+        animation-delay:${Math.random()*0.8}s;
+        width:${6+Math.random()*8}px;
+        height:${6+Math.random()*8}px;
+      `;
+      container.appendChild(el);
+    }
+  }
+
   function render(state) {
     $('pack-select').value = state.pack;
     $('pack-select').disabled = !isModerator;
+
+    const voterVotes = state.players.filter(p => p.isVoter && p.vote !== null).map(p => p.vote);
+    const consensus = voterVotes.length > 0 && new Set(voterVotes).size === 1;
 
     renderDeck(state.pack, state.revealed, state.players);
     renderPlayers(state.players, state.revealed);
@@ -537,8 +591,16 @@
     if (state.revealed) {
       $('results-section').classList.remove('hidden');
       renderResults(state.players);
+      if (consensus && !consensusShownForThisRound) {
+        consensusShownForThisRound = true;
+        const overlay = $('consensus-overlay');
+        overlay.classList.remove('hidden');
+        launchConfetti();
+        setTimeout(() => overlay.classList.add('hidden'), 3000);
+      }
     } else {
       $('results-section').classList.add('hidden');
+      consensusShownForThisRound = false;
     }
 
     if (isModerator) {
@@ -679,6 +741,7 @@
     distEl.innerHTML = `<div class="dist-label">Results</div>${rows}`;
 
     // Stats card (rendered below distribution)
+    const hasSpecial = votes.some(p => SPECIAL.has(p.vote));
     statsEl.innerHTML = `
       <div class="stats-card">
         <div class="stats-row">
@@ -699,6 +762,7 @@
             <div class="stat-label">Maximum</div>
           </div>
         </div>
+        ${hasSpecial ? `<p class="special-hint">💬 Voters with "?" or "☕", please explain your reasoning.</p>` : ''}
       </div>
     `;
   }
