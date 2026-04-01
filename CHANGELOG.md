@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.5.0] — 2026-03-31 · Brand Contrast Fix
+
+### Changed
+- **Brand name** on the landing page — removed indigo-purple gradient, now solid black (`#1e293b`) for clear legibility against the background image.
+- **Tagline** on the landing page — changed from `text-2` (#475569) to deep navy `#1e3a5f` with `font-weight: 500`; harmonises with the blue wave background while meeting contrast requirements.
+
+---
+
+## [1.4.0] — 2026-03-31 · Background Image & Results Improvements
+
+### Added
+- **Background image** — a blue wave image (`bg.jpg`) applied as a fixed, full-cover background on `body`, visible on both the landing screen and the room session screen. `background-attachment: fixed` gives a subtle parallax feel as content scrolls.
+
+### Changed
+- **Most voted — tied state** — when multiple values share the highest vote count, all tied answers are now shown in the Most Voted slot separated by `·`, with the label changing to *Most voted (tied)*.
+- **Special vote hint alignment** — `💬 Voters with "?" or "☕", please explain your reasoning.` is now center-aligned inside the stats card.
+- **Landing gradient removed** — `#view-landing` background changed from the `#eef2ff → #f8fafc` gradient to transparent so the body background image shows through cleanly.
+
+---
+
 ## [1.3.0] — 2026-03-31 · UX Polish & Celebration
 
 ### Added

@@ -41,7 +41,7 @@ A real-time **Planning Poker** web app for agile teams — players join a shared
 
 ### What Surprised Me
 
-I expected to need a `Dockerfile` or extra Railway-specific configuration. In reality, Railway detected the stack automatically from `package.json`. **I assumed cloud deployment required infrastructure knowledge — it mostly required a correct ****`package.json`****.**
+I expected to need a `Dockerfile` or extra Railway-specific configuration. In reality, Railway detected the stack automatically from `package.json`. **I assumed cloud deployment required infrastructure knowledge — it mostly required a correct \****`package.json`**\*\*.**
 
 ### My Mental Model Update
 
@@ -105,3 +105,49 @@ Before this session I thought Figma-to-code meant describing visuals to Claude a
 ### What I Would Try Next
 
 **Experiment:** Design the full room view in Figma (header, card deck, player grid, controls, footer) as a single screen, then use `get_design_context` on each section to incrementally implement the whole UI. This would practice: multi-node Figma extraction, keeping design system tokens consistent across sections, and managing a larger implementation in a single session.
+
+---
+
+## Session 3 — Feature Iteration & UI Polish
+
+**Module completed:** Feature Iteration & UI Polish
+**Time spent:** ~30 minutes
+
+### What I Built
+
+Several layers of UX polish on top of the existing Planning Poker app:
+- **Consensus celebration** — full-screen overlay with confetti and a brain image for 3 seconds when all voters agree ("We're all on the same page")
+- **Special vote hints** — stats card shows a contextual hint when someone casts "?" or "☕", so the team knows to discuss uncertainty
+- **Estimate reminder** — a subtle hint below "Choose your estimate" to prompt players who haven't voted yet
+- **Label contrast fix** — section label color darkened from `text-3` to `text-2` for readability
+- **Black header logo** — changed to solid black so the emoji renders correctly across platforms
+- **Tied most-voted display** — when multiple values share the highest vote count, all are shown separated by `·` with a "Most voted (tied)" label
+- **Background image** — blue wave image applied as a fixed cover background on both the landing and room screens
+- **Brand text contrast fix** — landing page brand name switched to solid black, tagline to deep navy `#1e3a5f`
+- **CHANGELOG.md** — documented all releases from v1.0.0 through v1.3.0
+
+### Key Concepts I Used
+
+1. **Class name targeting** — referencing exact CSS class names in prompts (`brand-name`, `text-3`, `stats-card`) so Claude edits the right element without touching surrounding code.
+2. **Incremental polish rounds** — each prompt addressed one scoped concern; Claude made surgical edits and left everything else intact.
+3. **Edge case coverage in one pass** — the tied-vote fix and the special-vote hint were both small logic additions Claude handled alongside the visual change in the same prompt.
+
+### Prompt Patterns That Worked
+
+**Prompt 1:**
+> *"Change **`.brand-name`** to solid black and **`.brand-tagline`** to deep navy — they're losing contrast against the background image"*
+
+- **Why it worked:** Naming the exact class meant Claude knew precisely which rule to edit. No ambiguity about which element "the brand text" referred to.
+- **Reusable pattern:** `Change .[class-name] to [desired state] — [reason]` — the class name removes all guesswork; the reason lets Claude choose the right CSS property.
+
+### What Surprised Me
+
+I expected iterating on fine visual details (contrast, alignment, edge cases) to require back-and-forth. Instead, naming the class directly made each change land correctly on the first try. **The result was very precise — referencing the class name is the difference between a vague request and a surgical one.**
+
+### My Mental Model Update
+
+Before this session I thought CSS tweaks were the fiddly part of iteration — easy to describe but hard to land exactly. Now I understand that the class name *is* the address: give Claude the address and the change arrives at the right door. The more specific the selector, the less room for interpretation errors.
+
+### What I Would Try Next
+
+Add a **vote history panel** — after each reveal, save the round's results (ticket label + votes + consensus) to a running list visible in the room. This would practice: managing state across rounds in `server.js`, appending to the DOM without a re-render, and designing a compact history layout.

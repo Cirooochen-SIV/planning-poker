@@ -74,13 +74,14 @@ function removePlayer(socket, roomId) {
 io.on('connection', (socket) => {
   let currentRoomId = null;
 
-  socket.on('create-room', ({ name }) => {
+  socket.on('create-room', ({ name, playerId }) => {
     const id = createRoomId();
     rooms.set(id, {
       players: new Map([[socket.id, { name: name || 'Anonymous', vote: null, isVoter: true }]]),
       revealed: false,
       pack: 'mountain-goat',
       moderatorId: socket.id,
+      creatorPlayerId: playerId || null,
       lastActivity: Date.now(),
     });
     currentRoomId = id;
@@ -89,7 +90,7 @@ io.on('connection', (socket) => {
     io.to(id).emit('room-update', getRoomState(rooms.get(id)));
   });
 
-  socket.on('join-room', ({ name, roomId }) => {
+  socket.on('join-room', ({ name, roomId, playerId }) => {
     if (!rooms.has(roomId)) {
       socket.emit('room-error', { message: `Room "${roomId}" not found. Check the number and try again.` });
       return;
@@ -97,6 +98,9 @@ io.on('connection', (socket) => {
     if (currentRoomId) removePlayer(socket, currentRoomId);
     const room = rooms.get(roomId);
     room.players.set(socket.id, { name: name || 'Anonymous', vote: null, isVoter: true });
+    if (playerId && room.creatorPlayerId && playerId === room.creatorPlayerId) {
+      room.moderatorId = socket.id;
+    }
     touch(room);
     currentRoomId = roomId;
     socket.join(roomId);

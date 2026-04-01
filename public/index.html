@@ -445,6 +445,13 @@
 </footer>
 
 <script>
+  // ── Persistent player identity ────────────────────────────────────────────────
+  const playerId = localStorage.getItem('playerId') || (() => {
+    const id = crypto.randomUUID();
+    localStorage.setItem('playerId', id);
+    return id;
+  })();
+
   // ── Card packs ────────────────────────────────────────────────────────────────
   const PACKS = {
     'mountain-goat': { cards: ['0','½','1','2','3','5','8','13','20','40','100','?','☕'] },
@@ -483,14 +490,14 @@
 
   // ── Landing ───────────────────────────────────────────────────────────────────
   $('btn-create').addEventListener('click', () => {
-    socket.emit('create-room', { name: 'Anonymous' });
+    socket.emit('create-room', { name: 'Anonymous', playerId });
   });
 
   function doJoin() {
     const rid = $('input-room').value.trim();
     if (!rid) { toast('Enter a room number'); return; }
     $('join-error').style.display = 'none';
-    socket.emit('join-room', { name: 'Anonymous', roomId: rid });
+    socket.emit('join-room', { name: 'Anonymous', roomId: rid, playerId });
   }
 
   $('btn-join').addEventListener('click', doJoin);
@@ -584,7 +591,8 @@
     $('pack-select').disabled = !isModerator;
 
     const voterVotes = state.players.filter(p => p.isVoter && p.vote !== null).map(p => p.vote);
-    const consensus = voterVotes.length > 0 && new Set(voterVotes).size === 1;
+    const numericVoterVotes = voterVotes.filter(v => !SPECIAL.has(v));
+    const consensus = voterVotes.length > 0 && new Set(voterVotes).size === 1 && numericVoterVotes.length > 1;
 
     renderDeck(state.pack, state.revealed, state.players);
     renderPlayers(state.players, state.revealed);
@@ -833,7 +841,7 @@
     const rid = getRoomFromPath();
     if (!rid) return;
     function autoJoin() {
-      socket.emit('join-room', { name: 'Anonymous', roomId: rid });
+      socket.emit('join-room', { name: 'Anonymous', roomId: rid, playerId });
     }
     if (socket.connected) autoJoin();
     else socket.once('connect', autoJoin);
