@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.6.0] — 2026-04-01 · Bug Fixes
+
+### Fixed
+- **Moderator lost on refresh** — the room creator now reclaims moderator status after refreshing their browser. Each browser is assigned a stable `playerId` UUID (stored in `localStorage`) sent on every `create-room` and `join-room` event. The server stores `creatorPlayerId` on the room and restores `moderatorId` when the original creator reconnects.
+- **Confetti with solo voter** — consensus overlay and confetti no longer fire when there is only 1 numeric vote. The celebration now requires at least 2 numeric votes all agreeing.
+
+---
+
 ## [1.5.0] — 2026-03-31 · Brand Contrast Fix
 
 ### Changed

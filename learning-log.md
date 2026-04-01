@@ -151,3 +151,43 @@ Before this session I thought CSS tweaks were the fiddly part of iteration — e
 ### What I Would Try Next
 
 Add a **vote history panel** — after each reveal, save the round's results (ticket label + votes + consensus) to a running list visible in the room. This would practice: managing state across rounds in `server.js`, appending to the DOM without a re-render, and designing a compact history layout.
+
+---
+
+## Session 4 — Bug Investigation & Fixes
+
+**Module completed:** Debugging Real-Time State & Identity
+**Time spent:** ~20 minutes
+
+### What I Built
+
+Two targeted bug fixes discovered through real team usage:
+
+- **Moderator persistence across refreshes** — when the room creator refreshed their browser, they lost moderator control permanently. The fix assigns each browser a stable UUID (`crypto.randomUUID()`, persisted in `localStorage`) and sends it as `playerId` on every join. The server stores `creatorPlayerId` at room creation and restores `moderatorId` when the matching UUID reconnects.
+- **Confetti guard for solo voters** — the consensus celebration (overlay + confetti) incorrectly fired when only one person voted numerically. Added a check requiring `numericVoterVotes.length > 1` before triggering the animation.
+
+### Key Concepts I Used
+
+1. **Plan mode for root cause analysis** — used plan mode to launch Explore and Plan agents before touching any code. The agents traced the full identity lifecycle: socket ID → disconnect → `removePlayer` → moderator reassignment → reconnect with new socket ID. This revealed the bug was architectural (ephemeral identity), not a simple logic error.
+2. **Persistent client identity via `localStorage`** — `crypto.randomUUID()` generates a V4 UUID on first visit; `localStorage` keeps it stable across refreshes. Sent on every socket event that matters, so the server can correlate reconnects to the original creator without any session infrastructure.
+3. **Graceful degradation** — the server-side reclaim check is guarded by `playerId && room.creatorPlayerId &&` so old clients (no `playerId`) degrade safely without errors.
+
+### Prompt Patterns That Worked
+
+**Prompt 1:**
+> *"The moderator refreshed the web page and then the moderator control changed to another teammate. Please investigate the issue and come up with a plan to fix this issue, to make sure the one who shared the room link, will always be the moderator."*
+
+- **Why it worked:** Describing the symptom and the desired outcome (not the implementation) let plan mode investigate without bias. The agents discovered the root cause independently and proposed the right solution.
+- **Reusable pattern:** For bugs involving real-time state or identity, describe *what the user experienced* and the *desired invariant* — let the agent trace the code path to the cause.
+
+### What Surprised Me
+
+The moderator bug looked like a simple reconnect issue, but the root cause was that the app had **no concept of player identity at all** — only socket IDs. A one-line symptom required understanding the full lifecycle: socket connect → room join → disconnect → `removePlayer` → moderator reassignment → reconnect as stranger. **Plan mode's parallel agent exploration surfaced this faster than reading code top-to-bottom would have.**
+
+### My Mental Model Update
+
+Before this session I thought real-time bugs were about timing (race conditions, missed events). This bug was actually about *identity* — the app had no way to recognise a returning player. The fix wasn't about timing at all; it was about giving each browser a stable fingerprint. **Real-time state bugs often aren't timing bugs — they're identity bugs in disguise.**
+
+### What I Would Try Next
+
+Add a **vote history panel** — after each reveal, save the round's results (ticket label + votes + consensus) to a running list visible in the room. This would practice: managing state across rounds in `server.js`, appending to the DOM without a re-render, and designing a compact history layout.
