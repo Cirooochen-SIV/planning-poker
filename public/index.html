@@ -84,6 +84,28 @@
     .clock-loc-btn.active { color: var(--text); font-weight: 600; }
     .clock-loc-btn .dot { font-size: 10px; min-width: 16px; }
 
+    .footer-quote-wrap {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .footer-quote {
+      font-size: 0.78rem;
+      color: var(--text-3);
+      font-style: italic;
+      letter-spacing: 0.02em;
+    }
+    .footer-quote-dice {
+      background: none; border: none; cursor: pointer;
+      font-size: 14px; padding: 0; line-height: 1;
+      opacity: 0.6; transition: opacity 0.15s, transform 0.15s;
+    }
+    .footer-quote-dice:hover { opacity: 1; transform: rotate(20deg) scale(1.2); }
+
     .footer-credit {
       font-size: 0.78rem;
       color: var(--text-3);
@@ -441,6 +463,10 @@
     <svg id="clock-svg" width="44" height="44" viewBox="0 0 52 52"></svg>
     <div class="clock-locs" id="clock-locs"></div>
   </div>
+  <div class="footer-quote-wrap">
+    <span class="footer-quote" id="footer-quote"></span>
+    <button class="footer-quote-dice" onclick="rollQuote()" title="New quote">🎲</button>
+  </div>
   <span class="footer-credit">Made with ❤️ by Ciro</span>
 </footer>
 
@@ -787,8 +813,51 @@
   const clockLocations = [
     { label: 'Berlin',  tz: 'Europe/Berlin' },
     { label: 'Romania', tz: 'Europe/Bucharest' },
-    { label: 'N. Macedonia', tz: 'Europe/Skopje' },
   ];
+
+  // ── Footer quotes ─────────────────────────────────────────────────────────────
+  const QUOTES = [
+    "You're doing great — one story point at a time. 🚀",
+    "Small steps still move the whole team forward.",
+    "Every great sprint starts with a single estimate.",
+    "Your ideas are worth pointing.",
+    "Ship it. You've got this.",
+    "Progress is progress, no matter the velocity.",
+    "Great teams talk it out before they build it out.",
+    "Today's blocker is tomorrow's war story.",
+    "Behind every 5-point ticket is a person giving their best.",
+    "Bugs are just features that haven't been understood yet.",
+    "You don't need perfect — you need done.",
+    "Coffee + teammates = unstoppable.",
+    "Every estimate is a tiny act of courage.",
+    "The best code is written by well-rested humans.",
+    "You turned chaos into a backlog. That's impressive.",
+    "Disagreement in planning beats regret in production.",
+    "Your retro feedback made someone's day better.",
+    "One PR at a time, you're changing things.",
+    "The team picked your story. That means something.",
+    "Voted and aligned — that's the dream.",
+    "You showed up. That's already a win.",
+    "A calm planning session is a team superpower.",
+    "Big problems fit in small tickets when the team is good.",
+    "Every question you ask saves someone three hours of confusion.",
+    "Your ½ point vote sparked the best conversation.",
+    "Even ☕ stories deserve a careful estimate.",
+    "Done is beautiful.",
+    "You make this team better just by being here.",
+    "Clarity is kindness — thanks for speaking up.",
+    "Today's planning seeds next sprint's momentum.",
+  ];
+  let lastQuoteIdx = -1;
+
+  function rollQuote() {
+    let idx;
+    do { idx = Math.floor(Math.random() * QUOTES.length); } while (idx === lastQuoteIdx);
+    lastQuoteIdx = idx;
+    $('footer-quote').textContent = QUOTES[idx];
+  }
+
+  rollQuote();
   let activeClockIdx = 0;
 
   function getDateInTz(tz) {
